@@ -44,7 +44,6 @@ public class BossAI : MonoBehaviour
             hpSlider.value = currentHp;  // 슬라이더 현재값을 보스 현재 HP로
         }
 
-        currentState = BossState.Idle;
     }
 
     void Update()
@@ -121,42 +120,68 @@ public class BossAI : MonoBehaviour
     // 3번: 피격 함수 (나중에 Bullet.cs가 이걸 호출해야 함)
     public void TakeDamage(int damage)
     {
+        // 이미 뒤졌거나 멍때리는 중(리셋 직후)이면 씹음
+        if (currentState == BossState.Dead || currentState == BossState.Idle && !isBusy) return;
+
         currentHp -= damage;
         Debug.Log("보스 HP: " + currentHp);
 
-        // (나중에 쳐맞는 이펙트, 무적 시간, 상태 변경 등 추가할 곳)
+        if (hpSlider != null) hpSlider.value = currentHp;
 
-        if (hpSlider != null)
-        {
-            hpSlider.value = currentHp;
-        }
-
-        if (currentHp <= 0)
+        // (HP 0 이하 && 아직 안 뒤졌으면)
+        if (currentHp <= 0 && currentState != BossState.Dead)
         {
             currentState = BossState.Dead;
-            isBusy = true; // 뒤졌으니 아무것도 못하게 막음
+            isBusy = true;
             Debug.Log("보스: 으악 뒤짐");
-            // (폭발 이펙트, 오브젝트 파괴 로직 추가)
-            Destroy(gameObject, 2f); // 2초 뒤에 시체 치우기
+            StopAllCoroutines(); // 쏘던 총알 멈춤
+            StartCoroutine(DeathRoutine()); // ★폭발/시체 치우기 코루틴 호출★
         }
+
     }
     public void ResetBoss()
     {
-        Debug.Log("보스: ㅋ 쫄? 리셋함.");
-
-        // 1. HP 꽉 채우기
+        // (총알 청소는 PlayerMovement가 Respawn()에서 싹 다 함)
+        Debug.Log("보스 리셋함");
         currentHp = maxHp;
 
-        // 2. HP바 (슬라이더) 꽉 채우기
+        // ★★★ (수정) HP바 끄기 ★★★
         if (hpSlider != null)
         {
             hpSlider.value = currentHp;
+            hpSlider.gameObject.SetActive(false); // (이게 핵심)
         }
 
-        // 3. (중요) 보스 패턴 멈추기
-        // 걍 멍 때리는 상태로 강제 변경하고 isBusy 풀어버림
-        StopAllCoroutines(); // 쏘던 총알 멈춤
+        StopAllCoroutines();
         currentState = BossState.Idle;
+        isBusy = false; // ★★★ 좆망 원인 (true -> false) ★★★
+    
+}
+    public void ActivateBoss()
+    {
+        // ★★★ (수정) HP바가 '이미' 켜져있으면 걍 씹어라 ★★★
+        if (hpSlider != null && hpSlider.gameObject.activeInHierarchy) return;
+
+        if (hpSlider != null)
+            hpSlider.gameObject.SetActive(true); // 1. HP바 켜기
+
+        currentHp = maxHp;
+        hpSlider.value = maxHp;
+
+        currentState = BossState.Idle; // 2. AI 시작
         isBusy = false;
+        Debug.Log("보스: ㅋ 떴노.");
+
+}
+    // ★★★ (새 함수 2) 뒤지는 연출 (TakeDamage가 호출함) ★★★
+    IEnumerator DeathRoutine()
+    {
+        // (여기다 폭발 이펙트 빵빵 쳐넣어라)
+        yield return new WaitForSeconds(2f); // 2초 뒤에
+
+        if (hpSlider != null)
+            hpSlider.gameObject.SetActive(false); // HP바 끄기
+
+        Destroy(gameObject); // 시체 치우기
     }
 }
