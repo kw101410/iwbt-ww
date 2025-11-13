@@ -152,29 +152,51 @@ public class PlayerMovement : MonoBehaviour
     }
 
     // ★★★ 리스폰 실행 함수 ★★★
+    // ★★★ (수정) 리스폰 실행 함수 (카메라 '선택적' 제어) ★★★
     public void Respawn()
     {
-        // 1. 보스 리셋 꼰지르기 (기존 코드)
+
+        GameManager.instance.IncrementDeathCount();
+
+        // 1. '내 총알' (PlayerBullet) 싹 다 청소 (기존 동일)
+        GameObject[] myBullets = GameObject.FindGameObjectsWithTag("PlayerBullet");
+        foreach (GameObject bullet in myBullets)
+        {
+            Destroy(bullet);
+        }
+
+        // 2. '보스 총알' (BossBullet) 싹 다 청소 (기존 동일)
+        GameObject[] bossBullets = GameObject.FindGameObjectsWithTag("BossBullet");
+        foreach (GameObject bullet in bossBullets)
+        {
+            Destroy(bullet);
+        }
+
+        // 3. 보스 리셋 꼰지르기 (기존 동일)
         if (bossAI != null)
         {
             bossAI.ResetBoss();
         }
 
-        // 2. 스폰 위치로 이동 (기존 코드)
+        // 4. 스폰 위치로 이동 (기존 동일)
         transform.position = currentSpawnPoint;
         rb.linearVelocity = Vector2.zero;
 
-        // 3. (★핵심★) 카메라 강제 전환
-        // (currentSpawnPoint가 4번 방(Boss_Checkpoint)이라는 전제 하에)
+        // 5. (★핵심 수정★) 카메라 강제 전환 (★★보스방(5번)에서 뒤졌을 때만★★)
         if (room4VCam != null && room5VCam != null)
         {
-            Debug.Log("카메라 강제 전환: 5번 방(보스방) 끄고, 4번 방(리스폰) 켠다.");
-            room5VCam.SetActive(false);
-            room4VCam.SetActive(true);
-        }
-        else
-        {
-            Debug.LogError("PlayerMovement 스크립트에 VCam 연결 삑사리났다 이기!");
+            // 5번 방(보스방) 카메라가 '현재 켜져있는지' 확인
+            if (room5VCam.activeInHierarchy) // (activeSelf 대신 activeInHierarchy가 안전빵)
+            {
+                Debug.Log("보스방에서 뒤짐! 카메라 강제 전환: 5번 방 끄고, 4번 방 켠다.");
+                room5VCam.SetActive(false); // 5번 방 카메라 끄기
+                room4VCam.SetActive(true);  // 4번 방 카메라 켜기
+            }
+            else
+            {
+                Debug.Log("다른 방(1,2,3,4)에서 뒤짐. 카메라는 냅둔다.");
+                // (보스방 아니면 카메라 냅둬야 함. 아무것도 안 함)
+            }
         }
     }
     private void OnTriggerEnter2D(Collider2D other)
